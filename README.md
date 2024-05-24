@@ -1,7 +1,7 @@
 # What is this?
 This repository contains sample code to implement 'nested facets' in MongoDB Atlas Search.
 
-Video demo:
+Video demo: [https://youtu.be/EUmCLfMse8Q](https://youtu.be/EUmCLfMse8Q)
 
 ## What are 'nested facets'?
 Simply put they are hiearcharchical filters that allow you to navigate structured relationships in your search queries. Here's a picture using the `sample_airbnb.listingsAndReviews` [sample data](https://www.mongodb.com/docs/atlas/sample-data/) that comes with your MongoDB Atlas installation.
