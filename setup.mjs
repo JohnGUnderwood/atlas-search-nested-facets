@@ -12,7 +12,11 @@ const searchIndex = {
           "fields": {},
           "dynamic": false,
           "type": "document"
-        }
+        },
+        [process.env.normal_facet_name]:[
+          {"type": "stringFacet"},
+          {"type": "token"}
+        ]
       }
     }
   }

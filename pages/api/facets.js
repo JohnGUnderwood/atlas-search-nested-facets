@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 function buildPipeline(searchMeta){
+    searchMeta.$searchMeta.facet.facets[`${process.env.normal_facet_name}`] = {type:"string",path:`${process.env.normal_facet_name}`}
     for(var i = 0; i<process.env.nested_levels; i++){
         searchMeta.$searchMeta.facet.facets[`${process.env.nested_facet_name}_level${i}`] = {type:"string",path:`${process.env.nested_facet_name}.level${i}`}
     }
@@ -17,7 +18,7 @@ function buildPipeline(searchMeta){
                 path: {
                   $split: ["$$bucket._id", "/"]
                 },
-                _id: "$$bucket._id",
+                _id: i < process.env.nested_levels-1 ? "$$bucket._id": {$last: { $split: ["$$bucket._id", "/"]}},
                 count: "$$bucket.count"
               }
             }
@@ -57,9 +58,14 @@ function buildPipeline(searchMeta){
         }
         })
     }
-    pipeline.push({$project:{ 
+    pipeline.push({$set:{ 
         [`facet.${process.env.nested_facet_name}`]:`$facet.${process.env.nested_facet_name}_level0`,
     }})
+    var unsetStage = {$unset:[]};
+    for(var i = process.env.nested_levels-1; i>=0; i--){
+        unsetStage.$unset.push(`facet.${process.env.nested_facet_name}_level${i}`)
+    }
+    pipeline.push(unsetStage);
     return pipeline;
 }
 
@@ -85,7 +91,7 @@ router.post(async (req, res) => {
         const pipeline = buildPipeline(searchMeta);
         try{
             const response = await getResults(req.collection,pipeline);
-            res.status(200).json({results:response,query:pipeline});
+            res.status(200).json({results:response[0].facet,query:pipeline});
         }catch(error){
             res.status(405).json({'error':`${error}`,query:pipeline});
         }

@@ -1,29 +1,36 @@
 import axios from 'axios';
 import Header from '../components/head';
-import {SearchInput, SearchResult} from '@leafygreen-ui/search-input';
-import { useState, } from 'react';
+import {SearchInput} from '@leafygreen-ui/search-input';
+import { useState, useEffect } from 'react';
 import { H1, Subtitle, Description, } from '@leafygreen-ui/typography';
 import Card from '@leafygreen-ui/card';
 import Button from '@leafygreen-ui/button';
+import { NestedFacets, Filters, SearchResult } from '../components/search';
 
 // schema variables
-const descriptionField = "description";
-const titleField = "name";
-const imageField = "images.picture_url";
+// const descriptionField = "description";
+// const titleField = "name";
+// const imageField = "images.picture_url";
+const schema = {
+  descriptionField : "description",
+  contentField : "description",
+  titleField : "name",
+  imageField : "images.picture_url"
+}
 
 export default function Home(){
   const [query, setQuery] = useState(null);
+  const [filters, setFilters] = useState({});
   const [instantResults, setInstantResults] = useState(null);
   const [facets, setFacets] = useState(null);
 
-
   const handleSearch = () => {
     if(query && query != ""){
-      getInstantResults(query)
+      getInstantResults(query,filters)
       .then(resp => setInstantResults(resp.data.results))
       .catch(error => console.log(error));
 
-      getFacets(query)
+      getFacets(query,filters)
       .then(resp => setFacets(resp.data.results))
       .catch(error => console.log(error));
     }else{
@@ -31,42 +38,44 @@ export default function Home(){
     }
   }
 
-  const handleVectorSearch = () => {
-    if(query && query != ""){
-      vectorSearch(query)
-      .then(resp => setInstantResults(resp.data.results))
-      .catch(error => console.log(error));
-    }else{
-      setQuery(null);
-    }
+  const handleAddFilter = (filter,val) => {
+    console.log(filter,val)
+    let copiedFilters = {...filters};
+    copiedFilters[filter] = val;
+    setFilters(copiedFilters);
+  };
+
+  const handleRemoveFilter = (field) => {
+    let copiedFilters = {...filters};
+    delete copiedFilters[field]
+    setFilters(copiedFilters);
   }
 
   const handleQueryChange = (event) => {
     setInstantResults(null);
     setQuery(event.target.value);
-    getInstantResults(event.target.value)
+    getInstantResults(event.target.value,filters)
     .then(resp => setInstantResults(resp.data.results))
     .catch(error => console.log(error));
 
-    getFacets(event.target.value)
+    getFacets(event.target.value,filters)
     .then(resp => setFacets(resp.data.results))
     .catch(error => console.log(error));
   };
 
+  useEffect(() => {
+    handleSearch();
+  },[filters]);
+
   return (
     <>
     <Header/>
-    <div style={{display:"grid",gridTemplateColumns:"10% 80% 10%",gap:"0px",alignItems:"start"}}>
+    <div style={{display:"grid",gridTemplateColumns:"30% 70%",gap:"0px",alignItems:"start"}}>
       <div style={{paddingTop:"225px"}}>
-      {facets && facets.facet
+      {facets
         ? 
-        JSON.stringify(facets.facet,null,2)
-        // <Card>
-        //   <Subtitle key={`${facetField}`}>{facetField}</Subtitle>
-        //       {instantResults[0].facets.facet[`${facetField}`].buckets.map(bucket => (
-        //           <Description key={bucket._id} style={{paddingLeft:"15px"}}><span key={`${bucket._id}_label`} style={{cursor:"pointer",paddingRight:"5px", color:"blue"}}>{bucket._id}</span><span key={`${bucket._id}_count`}>({bucket.count})</span></Description>
-        //       ))}
-        // </Card>
+        // JSON.stringify(facets,null,2)
+        <NestedFacets facets={facets} onFilterChange={handleAddFilter}/>
         : <></>
       }
       </div>
@@ -76,36 +85,19 @@ export default function Home(){
           <div><SearchInput onChange={handleQueryChange} aria-label="some label" style={{marginBottom:"20px"}}></SearchInput></div>
           <div><Button onClick={()=>handleSearch()} variant="primary">Search</Button></div>
         </div>
+        {filters? Object.keys(filters).length > 0 ? <Filters filters={filters} handleRemoveFilter={handleRemoveFilter}/> :<></>:<></>}
         {
           instantResults && instantResults.length > 0
           ?
           <div style={{maxWidth:"95%"}}>
             {instantResults.map(r => (
-              <SearchResult key={r._id}>
-                <Card>
-                    <Subtitle key={`${r._id}title`} style={{paddingBottom:"5px"}}>
-                      {r.title}
-                    </Subtitle>
-                    <div style={{display:"grid",gridTemplateColumns:"100px 90%",gap:"5px",alignItems:"start"}}>
-                      <img src={r.image} style={{maxWidth:"100px"}}/>
-                      <Description key={`${r._id}desc`}>
-                        {r.highlights?.length > 0
-                          ?
-                          <span dangerouslySetInnerHTML={createHighlighting(r.highlights,descriptionField,r.description)} />
-                          : 
-                          r.description
-                        }
-                      </Description>
-                    </div>
-                </Card>
-              </SearchResult>
+              <SearchResult query={query} key={r._id} r={r} schema={schema}></SearchResult>
             ))}
           </div>
           :
           <></>
         }
       </div>
-      <div></div>
     </div>
     </>
   )
@@ -138,28 +130,51 @@ function createHighlighting(highlightsField,fieldName,fieldValue) {
   return {__html: fieldValue};
 }
 
-async function getInstantResults(query) {
-  const pipeline = [
-      {
-        $search:{
-          index:'nestedFacetsSearchIndex',
-          text:{
-                query:query,
-                path:{wildcard:"*"}
-            },
-          highlight:{
-            path:`${descriptionField}`
-          },
-        },
+async function getInstantResults(query,filters) {
+  var searchStage = {
+    $search:{
+      index:'nestedFacetsSearchIndex',
+      highlight:{
+        path:`${schema.descriptionField}`
       },
+      compound:{
+        must:[
+          {
+            text:{
+              query:query,
+              path:{wildcard:"*"}
+            },
+          }
+        ],
+        filter:[]
+      }
+    },
+  }
+
+  if(filters && Object.keys(filters).length > 0){
+    for (const [field, filter] of Object.entries(filters)){
+
+      if(filter.type == "equals"){
+          const opt = {
+              equals: {
+                  path: field,
+                  value: filter.val
+              }
+          }
+          searchStage.$search.compound.filter.push(opt);
+      }
+    }
+  }
+  const pipeline = [
+      searchStage,
       {
           $limit:10
       },
       {
           $project:{
-            title:`$${titleField}`,
-            image:`$${imageField}`,
-            description:`$${descriptionField}`,
+            title:`$${schema.titleField}`,
+            image:`$${schema.imageField}`,
+            description:`$${schema.descriptionField}`,
             highlights: { $meta: "searchHighlights" },
             score:{$meta:"searchScore"},
           }
@@ -178,21 +193,43 @@ async function getInstantResults(query) {
   });
 }
 
-async function getFacets(query) {
+async function getFacets(query,filters) {
   const searchMeta = {
         $searchMeta:{
           index:'nestedFacetsSearchIndex',
           facet:{
             operator:{
-              text:{
-                query:query,
-                path:{wildcard:"*"}
+              compound:{
+                must:[
+                  {
+                    text:{
+                      query:query,
+                      path:{wildcard:"*"}
+                    }
+                  }
+                ],
+                filter:[]
               }
             },
             facets:{}
           }
         },
       }
+  
+  if(filters && Object.keys(filters).length > 0){
+    for (const [field, filter] of Object.entries(filters)){
+
+      if(filter.type == "equals"){
+          const opt = {
+              equals: {
+                  path: field,
+                  value: filter.val
+              }
+          }
+          searchMeta.$searchMeta.facet.operator.compound.filter.push(opt);
+      }
+    }
+  }
   return new Promise((resolve) => {
       axios.post(`api/facets`,
           { 
