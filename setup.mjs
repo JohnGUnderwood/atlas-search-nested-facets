@@ -50,11 +50,11 @@ try{
         await collection.createSearchIndex(searchIndex);
       }catch(error){
         if(error instanceof MongoError && error.codeName == 'IndexAlreadyExists'){
-          console.log('Index already exists');
-          collection.listSearchIndexes
+          console.log('Index already exists. Updating...');
+          await collection.updateSearchIndex("nestedFacetsSearchIndex",searchIndex.definition);
         }
         else{
-          console.log(`Creating indexe failed ${error}`);
+          console.log(`Creating index failed ${error}`);
           throw error;
         }
       }finally{

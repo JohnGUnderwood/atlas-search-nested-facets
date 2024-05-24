@@ -80,7 +80,7 @@ export default function Home(){
       }
       </div>
       <div>
-        <H1 style={{paddingLeft:"30%",paddingTop:"100px"}}>Movie Search</H1>
+        <H1 style={{paddingLeft:"30%",paddingTop:"100px"}}>Property Search</H1>
         <div style={{display:"grid",gridTemplateColumns:"75% 60px 60px",gap:"10px",alignItems:"start", paddingLeft:"16px"}}>
           <div><SearchInput onChange={handleQueryChange} aria-label="some label" style={{marginBottom:"20px"}}></SearchInput></div>
           <div><Button onClick={()=>handleSearch()} variant="primary">Search</Button></div>
