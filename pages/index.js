@@ -8,9 +8,6 @@ import Button from '@leafygreen-ui/button';
 import { NestedFacets, Filters, SearchResult } from '../components/search';
 
 // schema variables
-// const descriptionField = "description";
-// const titleField = "name";
-// const imageField = "images.picture_url";
 const schema = {
   descriptionField : "description",
   contentField : "description",

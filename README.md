@@ -91,6 +91,8 @@ You will need:
 ## Setup
 Set your environment variables. Simply copy the [example.env](example.env) file and rename it to `.env` and then make your changes.
 
+You may also need to change your [schema values](https://github.com/JohnGUnderwood/atlas-search-nested-facets/blob/main/pages/index.js#L14-L19) in the frontend to make the search results render correctly.
+
 Run
 ```
 npm install
